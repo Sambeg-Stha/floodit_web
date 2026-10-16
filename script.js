@@ -16,8 +16,13 @@ let moves;
 let gameOver;
 let cellEls = [];
 
-const boardEl = document.getElementById('board')
-const movesEl = document.getElementById('moves')
+const boardEl = document.getElementById('board');
+const movesEl = document.getElementById('moves');
+const palletEl = document.getElementById('pallet');
+const newGameBtn = document.getElementById('new-game');
+const overlayEl = document.getElementById('overlay');
+const overlayMessageEl = document.getElementById('overlay-message');
+const playAgainBtn = document.getElementById('play-again');
 
 function init(){
     board = Array.from({length : SIZE}, () =>
@@ -25,6 +30,10 @@ function init(){
             Math.floor(Math.random() * NUM_COLORS)
         )
     );
+    flooded = Array.from({length : SIZE}, () => Array(SIZE).fill(false));
+    flooded[0][0] = true;
+    moves = MAX_MOVE;
+    gameOver = false;
 }
 
 function buildCell(){
@@ -40,6 +49,29 @@ function buildCell(){
         }
         cellEls.push(row);
     }
+}
+
+function buildPallet(){
+    palletEl.innerHTML = '';
+    COLOR.forEach((color, i) =>{
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'swatch';
+        btn.style.background = color;
+        btn.setAttribute ('aria-label', 'Color ' + (i + 1));
+        btn.addEventListener('click', () =>
+            makeMove(i)
+        );
+        palletEl.appendChild(btn);
+    })
+}
+
+function updatePallet(){
+    const current = board[0][0]
+    Array.from(palletEl.children).forEach((btn,i) => {
+        btn.classList.toggle('active', i === current);
+        btn.setAttribute('aria-pressed', String(i === current));
+    });
 }
 
 function paint(){
@@ -100,7 +132,7 @@ function allFlooded(){
 function makeMove(colorIndex){
     if(gameOver)
         return;
-    if(!flooded(colorIndex))
+    if(!flood(colorIndex))
         return;
 
     moves -= 1;
@@ -108,18 +140,48 @@ function makeMove(colorIndex){
     paint();
     
     if(allFlooded()){
-        gameOver = true;
-        console.log('WIN');
+        endGame(true);
     }else if(moves === 0){
-        gameOver = true;
-        console.log('LOOSE');
+        endGame(false);
     }
 }
+
+function newGame(){
+    overlayEl.hidden = true;
+    init();
+    buildCell();
+    paint();
+    updatePallet();
+    movesEl.textContent = moves;
+    newGameBtn.focus();
+}
+
+function endGame(won){
+    gameOver = true;
+    overlayMessageEl.textContent = won
+        ? 'You Flooded the Board in ' + (MAX_MOVE - moves) + ' moves!'
+        : 'Out of Moves'
+    overlayEl.hidden = false;
+    playAgainBtn.focus();
+}
+
+playAgainBtn.addEventListener('click', newGame);
+newGameBtn.addEventListener('click', newGame);
+
+document.addEventListener('keydown', (event) =>{
+    const n = Number(event.key);
+    if(Number.isInteger(n) && n >= 1 && n <= NUM_COLORS){
+        makeMove(n-1);
+    }
+});
+
 
 document.addEventListener('DOMContentLoaded', () => {
     init();
     buildCell();
+    buildPallet();
     paint();
+    updatePallet();
     movesEl.textContent = moves;
 })
 
