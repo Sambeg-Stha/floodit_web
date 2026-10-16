@@ -1,10 +1,26 @@
-<html>
+<!DOCTYPE html>
+<html lang = "en">
 	<head>
-		<title>FLOOD IT GAME</title>
+		<meta charset="UTF-8">
+    	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>FLOOD IT</title>
+		<link rel = "stylesheet" href="style.css">
 	</head>
 	<body>
-		<center>
-			flood it board
-		</center>
+		<main>
+			<header id = "status">
+				<h1>FLOOD IT</h1>
+				<p>Moves Left: <span id = "moves">25</span></p>
+				<button id ="new-game" type = "button">NEW GAME</button>
+			</header>
+			<div id = "board" role="grid" aria-label="Flood color board"></div>
+			<div id = "pallet" role="group" aria-label="Color Choices"></div>
+			<div id="overlay" hidden>
+				<div class = "overlay-card">
+					<p id = "play-again" type = "button">PLAY AGAIN</p>
+				</div>
+			</div>
+		</main>
+		<script src="script.js" defer></script>
 	</body>
 </html>
