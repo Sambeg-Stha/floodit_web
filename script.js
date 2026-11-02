@@ -13,6 +13,14 @@ const COLOR = CONFIG.color;
 
 const DIRS = [[1,0], [-1,0], [0,1], [0,-1]];
 
+// Boards are generated from a seed so any logged game can be replayed byte for
+// byte. ?seed=N pins the first board of the visit; later NEW GAME presses keep
+// counting up (N, N+1, ...) instead of drawing a fresh random seed.
+const SEED_PARAM = new URLSearchParams(location.search).get('seed');
+
+let boardSeed = 0;
+let seedCursor = parseSeed(SEED_PARAM);
+
 let board;
 let flooded;
 let moves;
@@ -22,6 +30,8 @@ let cellEls = [];
 let sessionID = null;
 let sessionStart = 0;
 let stepCount = 0;
+let lastStepT = 0;
+let noopCount = 0;
 
 const boardEl = document.getElementById('board');
 const movesEl = document.getElementById('moves');
@@ -34,6 +44,35 @@ const playAgainBtn = document.getElementById('play-again');
 
 function encodeBoard(b){
     return b.map(row => row.join('')).join('');
+}
+
+function parseSeed(value){
+    if(value === null || value.trim() === '')
+        return null;
+    const n = Number(value);
+    if(!Number.isInteger(n) || n < 0 || n > 0xFFFFFFFF)
+        return null;
+    return n >>> 0;
+}
+
+function nextSeed(){
+    if(seedCursor !== null){
+        const seed = seedCursor;
+        seedCursor = (seedCursor + 1) >>> 0;
+        return seed;
+    }
+    return Math.floor(Math.random() * 0x100000000) >>> 0;
+}
+
+function mulberry32(seed){
+    let a = seed >>> 0;
+    return function(){
+        a = (a + 0x6D2B79F5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 0x100000000;
+    }
 }
 
 function encodeFlooded(mask){
@@ -60,6 +99,8 @@ function startSession(){
         : String(Date.now()) + Math.random().toString(16).slice(2);
     sessionStart = performance.now();
     stepCount = 0;
+    lastStepT = 0;
+    noopCount = 0;
 
     fetch('/api/session/start', {
         method: 'POST',
@@ -70,15 +111,19 @@ function startSession(){
             num_colors: NUM_COLORS,
             max_moves: MAX_MOVE,
             board: encodeBoard(board),
+            seed: boardSeed,
         }),
     }).catch(err => console.error('session start failed', err));
 }
 
 function logStep(before, action, done){
+    const t = tMs();
     const payload = {
         session_id: sessionID,
         step: stepCount,
-        t_ms: tMs(),
+        t_ms: t,
+        dt_ms: t - lastStepT,
+        noops_before: noopCount,
         moves_left: before.moves,
         action: action,
         state: before.state,
@@ -90,6 +135,8 @@ function logStep(before, action, done){
         done: done,
     };
     stepCount += 1;
+    lastStepT = t;
+    noopCount = 0;
 
     fetch('/api/session/step', {
         method: 'POST',
@@ -100,9 +147,12 @@ function logStep(before, action, done){
 }
 
 function init(){
+    boardSeed = nextSeed();
+    const rand = mulberry32(boardSeed);
+
     board = Array.from({length : SIZE}, () =>
         Array.from({length: SIZE}, () =>
-            Math.floor(Math.random() * NUM_COLORS)
+            Math.floor(rand() * NUM_COLORS)
         )
     );
     flooded = Array.from({length : SIZE}, () => Array(SIZE).fill(false));
@@ -213,6 +263,11 @@ function allFlooded(){
 function makeMove(colorIndex){
     if(gameOver)
         return;
+
+    if(colorIndex === board[0][0]){
+        noopCount += 1;
+        return;
+    }
 
     const before = {
         state: encodeBoard(board),
