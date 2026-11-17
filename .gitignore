@@ -119,9 +119,6 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Game telemetry output
-data/
-
 # Environments
 .env
 .venv

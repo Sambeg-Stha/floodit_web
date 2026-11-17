@@ -13,8 +13,8 @@ const COLOR = CONFIG.color;
 
 const DIRS = [[1,0], [-1,0], [0,1], [0,-1]];
 
-// Boards are generated from a seed so any logged game can be replayed byte for
-// byte. ?seed=N pins the first board of the visit; later NEW GAME presses keep
+// Boards are generated from a seed so any game can be replayed byte for byte.
+// ?seed=N pins the first board of the visit; later NEW GAME presses keep
 // counting up (N, N+1, ...) instead of drawing a fresh random seed.
 const SEED_PARAM = new URLSearchParams(location.search).get('seed');
 
@@ -27,12 +27,6 @@ let moves;
 let gameOver;
 let cellEls = [];
 
-let sessionID = null;
-let sessionStart = 0;
-let stepCount = 0;
-let lastStepT = 0;
-let noopCount = 0;
-
 const boardEl = document.getElementById('board');
 const movesEl = document.getElementById('moves');
 const palletEl = document.getElementById('pallet');
@@ -41,10 +35,6 @@ const overlayEl = document.getElementById('overlay');
 const overlayMessageEl = document.getElementById('overlay-message');
 const playAgainBtn = document.getElementById('play-again');
 
-
-function encodeBoard(b){
-    return b.map(row => row.join('')).join('');
-}
 
 function parseSeed(value){
     if(value === null || value.trim() === '')
@@ -75,83 +65,12 @@ function mulberry32(seed){
     }
 }
 
-function encodeFlooded(mask){
-    return mask.map(row => row.map(v => (v ? 1 : 0)).join('')).join('');
-}
-
-function countFlooded(mask){
-    let total = 0;
-    for(let r = 0; r < SIZE; r++){
-        for(let c = 0; c < SIZE; c++){
-            if(mask[r][c]) total += 1;
-        }
-    }
-    return total;
-}
-
-function tMs(){
-    return Math.round(performance.now() - sessionStart);
-}
-
-function startSession(){
-    sessionID = crypto.randomUUID
-        ? crypto.randomUUID()
-        : String(Date.now()) + Math.random().toString(16).slice(2);
-    sessionStart = performance.now();
-    stepCount = 0;
-    lastStepT = 0;
-    noopCount = 0;
-
-    fetch('/api/session/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            session_id: sessionID,
-            size: SIZE,
-            num_colors: NUM_COLORS,
-            max_moves: MAX_MOVE,
-            board: encodeBoard(board),
-            seed: boardSeed,
-        }),
-    }).catch(err => console.error('session start failed', err));
-}
-
-function logStep(before, action, done){
-    const t = tMs();
-    const payload = {
-        session_id: sessionID,
-        step: stepCount,
-        t_ms: t,
-        dt_ms: t - lastStepT,
-        noops_before: noopCount,
-        moves_left: before.moves,
-        action: action,
-        state: before.state,
-        flooded: before.flooded,
-        next_state: encodeBoard(board),
-        next_flooded: encodeFlooded(flooded),
-        cells_flooded: countFlooded(flooded) - before.floodedCount,
-        next_moves_left: moves,
-        done: done,
-    };
-    stepCount += 1;
-    lastStepT = t;
-    noopCount = 0;
-
-    fetch('/api/session/step', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        keepalive: true,
-        body: JSON.stringify(payload),
-    }).catch(err => console.error('log step failed', err));
-}
-
 function init(){
     boardSeed = nextSeed();
     const rand = mulberry32(boardSeed);
 
     board = Array.from({length : SIZE}, () =>
-        Array.from({length: SIZE}, () =>
+        Array.from({length : SIZE}, () =>
             Math.floor(rand() * NUM_COLORS)
         )
     );
@@ -264,18 +183,6 @@ function makeMove(colorIndex){
     if(gameOver)
         return;
 
-    if(colorIndex === board[0][0]){
-        noopCount += 1;
-        return;
-    }
-
-    const before = {
-        state: encodeBoard(board),
-        flooded: encodeFlooded(flooded),
-        floodedCount: countFlooded(flooded),
-        moves: moves,
-    };
-
     if(!flood(colorIndex))
         return;
 
@@ -284,11 +191,7 @@ function makeMove(colorIndex){
     paint();
     updatePallet();
 
-    const won = allFlooded();
-    const done = won || moves === 0;
-    logStep(before, colorIndex, done);
-
-    if(won){
+    if(allFlooded()){
         endGame(true);
     }else if(moves === 0){
         endGame(false);
@@ -301,7 +204,6 @@ function newGame(){
     paint();
     updatePallet();
     movesEl.textContent = moves;
-    startSession();
     newGameBtn.focus();
 }
 
@@ -331,6 +233,4 @@ document.addEventListener('DOMContentLoaded', () => {
     paint();
     updatePallet();
     movesEl.textContent = moves;
-    startSession();
 })
-

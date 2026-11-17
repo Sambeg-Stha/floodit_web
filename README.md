@@ -1,16 +1,29 @@
 # FloodIt Web
 
-## Run the server
-# Create and activate a virtual environment and download dependencies
+A small Flood It game written in plain HTML, CSS and JavaScript. No build step,
+no dependencies and no backend.
 
-# Start the server
-uvicorn server:app --reload
+## Play
 
-Then open http://127.0.0.1:8000 in your browser.
+Open `index.html` directly, or serve the folder:
 
-## Stored data
-- CSV (`data/YYYY-MM-DD.csv`): one row per submitted game step — session id, step number, timings, moves left, action, board state before/after, cells flooded and done flag.
-- Stored on every `POST /api/session/step` call, appended to the current UTC-day file.
-- Daily ordering: each UTC day gets its own file, and rows are re-sorted by session id then step number once the day rolls over or no player has been active for 10 minutes.
-- JSON (`data/sessions/<session_id>.json`): the session header written once at start — size, color count, max moves, board, seed, start time and version.
+```bash
+python3 -m http.server 8000
+```
 
+Then visit http://127.0.0.1:8000.
+
+## Rules
+
+The top-left cell is your starting region. Pick a color to flood every connected
+cell of that color, then repeat. Flood the whole board within 25 moves.
+
+## Controls
+
+- Click a color swatch, or press `1`-`6`.
+- `NEW GAME` starts a fresh board.
+
+## Seeds
+
+`?seed=N` pins the board sequence so a game can be reproduced exactly. Each
+`NEW GAME` press advances the seed by one.
