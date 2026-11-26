@@ -116,7 +116,7 @@ function startSession(){
     }).catch(err => console.error('session start failed', err));
 }
 
-function logStep(before, action, done){
+function logStep(before, action, done, solved){
     const t = tMs();
     const payload = {
         session_id: sessionID,
@@ -133,6 +133,7 @@ function logStep(before, action, done){
         cells_flooded: countFlooded(flooded) - before.floodedCount,
         next_moves_left: moves,
         done: done,
+        solved: solved,
     };
     stepCount += 1;
     lastStepT = t;
@@ -286,7 +287,7 @@ function makeMove(colorIndex){
 
     const won = allFlooded();
     const done = won || moves === 0;
-    logStep(before, colorIndex, done);
+    logStep(before, colorIndex, done, won);
 
     if(won){
         endGame(true);

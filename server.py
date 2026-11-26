@@ -1,5 +1,4 @@
 import csv
-import json
 import os
 import re
 import threading
@@ -15,12 +14,9 @@ BASE = Path(__file__).parent
 DATA_DIR = BASE / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
-# Session headers (config, board, seed, version) are stored one JSON file per
-# session
+# One CSV file per session, named by session id
 SESSIONS_DIR = DATA_DIR / "sessions"
 SESSIONS_DIR.mkdir(exist_ok=True)
-
-APP_VERSION = "0.1.0"
 
 SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -28,25 +24,18 @@ ACTIVE_TIMEOUT_SECONDS = 10 * 60
 
 STEP_FIELDS = [
     "session_id",
-    "step",
-    "t_ms",
-    "dt_ms",
-    "noops_before",
+    "timestep",
+    "board",
     "moves_left",
     "action",
-    "state",
-    "flooded",
-    "next_state",
-    "next_flooded",
-    "cells_flooded",
+    "next_board",
     "next_moves_left",
-    "done",
-    "logged_at",
+    "was_solved",
+    "timestamp",
 ]
 
 app = FastAPI()
 session: dict[str, dict] = {}
-_last_day: str | None = None
 _csv_lock = threading.Lock()
 
 
@@ -73,18 +62,15 @@ class StepRequest(BaseModel):
     cells_flooded : int
     next_moves_left : int
     done : bool
+    solved : bool = False
 
 
-def _utc_day() -> str:
-    return datetime.now(timezone.utc).date().isoformat()
+def _csv_path(session_id: str) -> Path:
+    return SESSIONS_DIR / f"{session_id}.csv"
 
 
-def _csv_path(day: str) -> Path:
-    return DATA_DIR / f"{day}.csv"
-
-
-def _append_row(day: str, row: dict) -> None:
-    path = _csv_path(day)
+def _append_row(session_id: str, row: dict) -> None:
+    path = _csv_path(session_id)
     new_file = not path.exists() or path.stat().st_size == 0
     if new_file:
         with path.open("w", newline="", encoding="utf-8-sig") as f:
@@ -93,8 +79,8 @@ def _append_row(day: str, row: dict) -> None:
         csv.DictWriter(f, fieldnames=STEP_FIELDS).writerow(row)
 
 
-def _sort_day(day: str) -> None:
-    path = _csv_path(day)
+def _sort_session(session_id: str, solved: bool | None = None) -> None:
+    path = _csv_path(session_id)
     if not path.exists():
         return
 
@@ -104,7 +90,11 @@ def _sort_day(day: str) -> None:
     if not rows:
         return
 
-    rows.sort(key=lambda r: (r["session_id"], int(r["step"])))
+    rows.sort(key=lambda r: int(r["timestep"]))
+    if solved is not None:
+        for row in rows:
+            row["was_solved"] = str(solved)
+
     tmp = path.with_suffix(".csv.tmp")
     with tmp.open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=STEP_FIELDS)
@@ -123,45 +113,39 @@ def _has_active_players(now: float) -> bool:
 
 
 def _record_step(req: StepRequest) -> None:
-    global _last_day
+    now = time.monotonic()
+    meta = session.get(req.session_id)
+    solved = req.solved or bool(meta and meta.get("solved"))
 
-    today = _utc_day()
-    row = req.model_dump()
-    row["logged_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    row = {
+        "session_id": req.session_id,
+        "timestep": req.step,
+        "board": req.state,
+        "moves_left": req.moves_left,
+        "action": req.action,
+        "next_board": req.next_state,
+        "next_moves_left": req.next_moves_left,
+        "was_solved": solved,
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
 
     with _csv_lock:
-        if _last_day is not None and today != _last_day:
-            _sort_day(_last_day)
-        _last_day = today
+        _append_row(req.session_id, row)
 
-        _append_row(today, row)
-
-        meta = session.get(req.session_id)
         if meta is not None:
-            meta["last_seen"] = time.monotonic()
-            if req.done:
+            meta["last_seen"] = now
+            if req.solved:
+                meta["solved"] = True
                 meta["done"] = True
-        if not _has_active_players(time.monotonic()):
-            _sort_day(today)
-
-
-def _session_path(session_id: str) -> Path:
-    return SESSIONS_DIR / f"{session_id}.json"
+            elif req.done:
+                meta["done"] = True
+        if solved or req.done or not _has_active_players(now):
+            _sort_session(req.session_id, solved=True if solved else None)
 
 
 def _validate_session_id(session_id: str) -> None:
     if not SESSION_ID_RE.match(session_id):
         raise HTTPException(status_code=400, detail="INVALID SESSION ID")
-
-
-def _write_session_header(req: StartResponse) -> None:
-    path = _session_path(req.session_id)
-    tmp = path.with_name(f"{path.name}.tmp")
-    header = req.model_dump()
-    header["started_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    header["version"] = APP_VERSION
-    tmp.write_text(json.dumps(header, indent=2), encoding="utf-8")
-    os.replace(tmp, path)
 
 
 @app.post("/api/session/start")
@@ -174,7 +158,6 @@ def start(req : StartResponse):
         "last_seen": now,
         "done": False,
     }
-    _write_session_header(req)
     print(f"[start] {req.session_id[:8]} size={req.size} colors={req.num_colors} "
           f"moves={req.max_moves} seed={req.seed} board={req.board}")
     return {"ok" : True}

@@ -9,8 +9,8 @@ uvicorn server:app --reload
 Then open http://127.0.0.1:8000 in your browser.
 
 ## Stored data
-- CSV (`data/YYYY-MM-DD.csv`): one row per submitted game step — session id, step number, timings, moves left, action, board state before/after, cells flooded and done flag.
-- Stored on every `POST /api/session/step` call, appended to the current UTC-day file.
-- Daily ordering: each UTC day gets its own file, and rows are re-sorted by session id then step number once the day rolls over or no player has been active for 10 minutes.
-- JSON (`data/sessions/<session_id>.json`): the session header written once at start — size, color count, max moves, board, seed, start time and version.
+- CSV (`data/sessions/<session_id>.csv`): one file per session, one row per submitted game step, with columns: `session_id`, `timestep`, `board`, `moves_left`, `action`, `next_board`, `next_moves_left`, `was_solved`, `timestamp`.
+- `was_solved` is session-level: it starts as `False` and is backfilled to `True` on every row of that session once the player solves the board.
+- Written on every `POST /api/session/step` call, appended to that session's file.
+- Ordering: rows in each session file are re-sorted by timestep once the game finishes or no player has been active for 10 minutes.
 
