@@ -224,6 +224,202 @@ button:focus-visible{
     to   { transform: scale(1);    opacity: 1; }
 }
 
+/* Data analysis page */
+main.analysis{
+    width: min(100%, 960px);
+    align-items: stretch;
+}
+
+.analysis-section{
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.analysis-section h2{
+    padding-bottom: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line-dim);
+}
+
+.analysis-list{
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.analysis-list.data-list{
+    max-height: 460px;
+}
+
+.empty{
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+}
+
+.list-item{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    text-align: left;
+    color: var(--text);
+    background: #000;
+    border: 1px solid var(--line-dim);
+}
+
+.list-item:hover{
+    color: var(--text);
+    background: #000;
+    border-color: var(--line);
+}
+
+.list-item.active{
+    border-color: var(--line);
+    box-shadow: inset 4px 0 0 var(--line);
+}
+
+.list-item-label{
+    overflow-wrap: anywhere;
+}
+
+.list-item-meta{
+    flex: none;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* Timestep viewer */
+.modal{
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    padding: 1.25rem;
+    background: rgba(0, 0, 0, 0.86);
+}
+
+.modal[hidden]{
+    display: none;
+}
+
+.modal-card{
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: min(100%, 760px);
+    padding: 1.5rem;
+    background: #000;
+    border: var(--border) solid var(--line);
+    box-shadow: 8px 8px 0 var(--shadow);
+    animation: pop 0.16s ease-out;
+}
+
+.modal-head,
+.modal-foot{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.modal-head{
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--line-dim);
+}
+
+.modal-head h3{
+    font-size: 0.85rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.modal-flow{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.board-block{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.board-label{
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--muted);
+}
+
+.mini-board{
+    display: grid;
+    grid-template-columns: repeat(var(--mini-size, 6), 20px);
+    grid-auto-rows: 20px;
+    gap: 2px;
+    padding: 4px;
+    background: var(--line-dim);
+    box-shadow: 3px 3px 0 var(--shadow);
+}
+
+.mini-cell{
+    background: var(--line-dim);
+}
+
+.modal-action{
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.action-swatch{
+    width: 18px;
+    height: 18px;
+    background: var(--line-dim);
+    border: 1px solid var(--line);
+}
+
+.modal-foot button:disabled{
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.modal-foot button:disabled:hover{
+    color: var(--line);
+    background: #000;
+}
+
 @media (max-width: 480px) {
     main {
         padding: 1rem;
@@ -242,6 +438,19 @@ button:focus-visible{
     .overlay-card {
         padding: 1.75rem 1.5rem;
     }
+
+    .modal-card {
+        padding: 1rem;
+    }
+
+    .list-item {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .list-item-meta {
+        white-space: normal;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -250,5 +459,6 @@ button:focus-visible{
     .swatch:hover,
     .swatch.active { transform: none; }
     .overlay-card { animation: none; }
+    .modal-card { animation: none; }
     button:active { transform: none; }
 }

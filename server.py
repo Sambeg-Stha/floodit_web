@@ -182,6 +182,71 @@ def step(req : StepRequest):
 def ping():
     return {"ok": True}
 
+
+@app.get("/api/sessions")
+def list_sessions():
+    files = sorted(
+        SESSIONS_DIR.glob("*.csv"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    sessions = []
+    for path in files:
+        try:
+            with path.open("r", newline="", encoding="utf-8-sig") as f:
+                rows = list(csv.DictReader(f))
+        except OSError:
+            continue
+        sessions.append({
+            "session_id": path.stem,
+            "steps": len(rows),
+            "was_solved": any(r.get("was_solved") == "True" for r in rows),
+            "last_timestamp": rows[-1].get("timestamp") if rows else None,
+        })
+    return {"sessions": sessions}
+
+
+@app.get("/api/sessions/{session_id}")
+def session_rows(session_id: str):
+    _validate_session_id(session_id)
+    path = _csv_path(session_id)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="UNKNOWN SESSION")
+
+    with path.open("r", newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.DictReader(f))
+
+    rows.sort(key=lambda r: int(r["timestep"]))
+    return {
+        "session_id": session_id,
+        "rows": [
+            {
+                "session_id": row.get("session_id"),
+                "timestep": int(row["timestep"]),
+                "board": row.get("board"),
+                "moves_left": int(row["moves_left"]),
+                "action": int(row["action"]),
+                "next_board": row.get("next_board"),
+                "next_moves_left": int(row["next_moves_left"]),
+                "was_solved": row.get("was_solved") == "True",
+                "timestamp": row.get("timestamp"),
+            }
+            for row in rows
+        ],
+    }
+
+
+@app.get("/dataanalysis")
+@app.get("/dataanalysis.html")
+def dataanalysis():
+    return FileResponse(BASE / "dataanalysis.html")
+
+
+@app.get("/dataanalysis.js")
+def dataanalysis_js():
+    return FileResponse(BASE / "dataanalysis.js", media_type="application/javascript")
+
+
 @app.get("/")
 def index():
     return FileResponse(BASE/"index.html")
